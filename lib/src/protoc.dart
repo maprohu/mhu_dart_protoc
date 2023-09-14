@@ -36,28 +36,30 @@ String skipPath(int skip, File Function(Directory dir) path) =>
 Future<void> runProtoc({
   String? packageName,
   List<String> dependencies = const [],
-  Directory? cwd,
+  Directory? sourcePackageDirectory,
+  Directory? targetPackageDirectory,
 }) async {
-  cwd ??= Directory.current;
-  packageName ??= await packageNameFromPubspec(cwd);
-  final dartOut = cwd.dartOut;
+  sourcePackageDirectory ??= Directory.current;
+  targetPackageDirectory ??= Directory.current;
+  packageName ??= await packageNameFromPubspec(sourcePackageDirectory);
+  final dartOut = targetPackageDirectory.dartOut;
   await dartOut.create(recursive: true);
-  await cwd.descriptorSetOut.parent.create(recursive: true);
+  await targetPackageDirectory.descriptorSetOut.parent.create(recursive: true);
 
-  await cwd.run(
+  await sourcePackageDirectory.run(
     "protoc",
     [
       "--dart_out=${dartOut.path}",
-      '--descriptor_set_out=${cwd.descriptorSetOut.path}',
-      "--proto_path=${cwd.protoPath.path}",
+      '--descriptor_set_out=${targetPackageDirectory.descriptorSetOut.path}',
+      "--proto_path=${sourcePackageDirectory.protoPath.path}",
       for (final dep in dependencies) "--proto_path=${await _protoPath(dep)}",
-      cwd.protoPath.file("$packageName.proto").path,
+      sourcePackageDirectory.protoPath.file("$packageName.proto").path,
     ],
   );
 
   for (final dep in dependencies) {
     Future<void> create(File Function(Directory dir) type) async {
-      final file = type(cwd!);
+      final file = type(targetPackageDirectory!);
       final content = "export '${protoImportUri(dep)}';";
       await file.writeAsString(content);
     }
